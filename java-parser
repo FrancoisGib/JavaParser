@@ -1,0 +1,52 @@
+#!/bin/sh
+
+iterate () {
+    mkdir -p output
+    mkdir -p output/preview
+    mkdir -p output/uml
+    echo "Processing $1"
+    name=$(basename $1)
+    echo "@startuml\n" > ./output/preview/${name}.wsd
+    generate $1 "-maxdepth 1" >> ./output/preview/${name}.wsd
+    echo "@enduml" >> ./output/preview/${name}.wsd
+    java -jar plantuml.jar -tsvg ./output/preview/${name}.wsd
+    mv ./output/preview/${name}.svg ./output/uml/${name}.svg
+}
+
+generate () {
+    find $1 $2 -type f -name "*.java" | while read -r java_file
+    do
+        runghc Main.hs $java_file
+    done
+}
+
+loop () {
+    for D in $1*/; do
+        if [ -d "${D}" ]; then
+            iterate $D
+            loop $D
+        fi
+    done
+}
+
+generateAll () {
+	echo "@startuml\n" > ./uml.wsd
+	generate $1 >> ./uml.wsd
+	echo "@enduml" >> ./uml.wsd
+	java -jar plantuml.jar -tsvg ./uml.wsd
+    rm ./uml.wsd
+}
+
+while [ $# -gt 0 ]; do
+    case $2 in
+        -a | --all)
+        echo "Generating all"
+        generateAll $1
+        ;;
+        *)
+        loop $1
+        exit 0
+        ;;
+    esac
+    shift
+done
